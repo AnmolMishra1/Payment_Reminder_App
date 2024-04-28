@@ -18,7 +18,7 @@ app.use(methodOverride('_method'));
 const mongoose = require('mongoose');
 const session = require('express-session');
 let uri=process.env.URI
-mongoose.connect('mongodb+srv://Devil_154371_Anmol:Devil_154371_Anmol@cluster0.2p9zb2b.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')//, { useNewUrlParser: true, useUnifiedTopology: true }
+mongoose.connect('mongodb url')//, { useNewUrlParser: true, useUnifiedTopology: true }
     .then(() => console.log('Connected to MongoDB'))
     .catch(err => console.error('Error connecting to MongoDB:', err));   
 const reminderSchema = new mongoose.Schema({
