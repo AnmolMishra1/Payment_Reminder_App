@@ -4,21 +4,25 @@ const bodyParser = require('body-parser');
 const methodOverride = require('method-override');
 const PDFDocument = require('pdfkit');
 const nodemailer = require('nodemailer');
+const path = require('path');
 var cron = require('node-cron');
-// Middleware to parse JSON-encoded bodies
 app.use(bodyParser.json());
-// Middleware to parse URL-encoded bodies
-require('dotenv').config()
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static("./views"));
-app.use(express.static("./payment-reminder"));
+
+require('dotenv').config(); 
+app.use(express.static(path.join(__dirname, 'views')));
 app.set('view engine', 'ejs');
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(methodOverride('_method'));
 const mongoose = require('mongoose');
+const uri=process.env.URI;
 const session = require('express-session');
-let uri=process.env.URI
-mongoose.connect('mongodb url')//, { useNewUrlParser: true, useUnifiedTopology: true }
+app.use(session({
+    secret: 'your_secret_key', 
+    resave: false,
+    saveUninitialized: false
+}));
+// app.use("/api", authRouter);
+mongoose.connect(uri)//, { useNewUrlParser: true, useUnifiedTopology: true }
     .then(() => console.log('Connected to MongoDB'))
     .catch(err => console.error('Error connecting to MongoDB:', err));   
 const reminderSchema = new mongoose.Schema({
@@ -26,26 +30,37 @@ const reminderSchema = new mongoose.Schema({
         name: String,
         dueDate: Date,
         cost: Number,
-        category: String, // New field for category
-        recurring: Boolean, // New field for recurring reminders
-        customNotification: String // New field for custom notification preferences
+        category: String, 
+        recurring: Boolean, 
+        customNotification: String
     });
 const reminderSchema1=new mongoose.Schema({
-    name:String,
-    password:Number,
-    email:String,
-    fullName:String
+    name:{
+        type:String,
+        require:true  },
+        
+    password: {
+        type:String,
+        require:true
+    },
+    
+    email:{
+        type:String,
+       require:true }, 
+       
+       fullName:
+     {
+        type:String,
+      require:true
+    }
 
 })
-
 const Reminder = mongoose.model('Reminder', reminderSchema);
-
-const Reminder1 = mongoose.model('User', reminderSchema1);
+const Reminder1 = mongoose.model('signup', reminderSchema1);
 let reminders = [
     { id: 1, name: 'Rent', dueDate: '2024-05-01', cost: 100, category: 'Rent' },
     { id: 2, name: 'Electricity bill', dueDate: '2024-05-05', cost: 50, category: 'Utilities' },
 ];
-
 app.get('/', (req, res) => {
     res.render('index', { reminders: reminders });
 });
@@ -58,30 +73,14 @@ app.get('/new', (req, res) => {
 app.get('/signup',(req,res)=>{
     res.render('signup');
 })
-app.post('/new', async (req, res) => {
-    try {
-        // Create a new reminder
-        const newReminder = {
-            id: reminders.length + 1,
-            name: req.body.name,
-            dueDate: req.body.dueDate,
-            cost: parseFloat(req.body.cost),
-            category: req.body.category,
-            recurring: req.body.recurring === 'on'
-        };
-        // Save the reminder to the database
-        reminders.push(newReminder);
-        // Redirect to the main page
-        res.redirect('/');
-    } catch (err) {
-        console.error('Error adding reminder:', err);
-        res.status(500).send('Internal Server Error');
-    }
-});
+app.get('/profile',(req,res)=>
+{
+    res.render('profile',{reminders:reminders,username:req.session.username});
+})
 app.delete('/delete/:id', (req, res) => {
     const idToDelete = parseInt(req.params.id);
     reminders = reminders.filter(reminder => reminder.id !== idToDelete);
-    res.redirect('/');
+     res.redirect('/');
 });
 
 app.get('/print', (req, res) => {
@@ -112,7 +111,6 @@ app.get('/print', (req, res) => {
 });
 app.get('/reminders', (req, res) => {
     const { sortBy, filterBy } = req.query;
-    // Sort reminders by specified criteria
     let sortedReminders = reminders;
     if (sortBy === 'name') 
     {
@@ -127,26 +125,10 @@ app.get('/reminders', (req, res) => {
     if (filterBy) {
         filteredReminders = sortedReminders.filter(reminder => reminder.category === filterBy);
     }
-    res.render('index', { reminders: filteredReminders });
+    res.render('profile', { reminders: filteredReminders ,username:req.session.username});
 });
-
-
-app.put('/complete/:id', async (req, res) => {
-    try {
-        const reminder = await Reminder.findById(req.params.id);
-        if (reminder) {
-            reminder.completed = !reminder.completed; // Toggle completion status
-            await reminder.save();
-            res.redirect('/');
-        } else {
-            res.status(404).send('Reminder not found');
-        }
-    } catch (err) {
-        console.error('Error completing reminder:', err);
-        res.status(500).send('Internal Server Error');
-    }
-});
-app.get('/reminder/:id', (req, res) => {
+app.get('/reminder/:id', (req, res) => 
+    {
     const reminderId = parseInt(req.params.id);
     const reminder = reminders.find(reminder => reminder.id === reminderId);
     if (reminder) {
@@ -165,24 +147,24 @@ app.post('/reminder/recurring', (req, res) => {
         recurring: req.body.recurring === 'on'
     };
     reminders.push(newReminder);
-    res.redirect('/reminders');
+    res.redirect('/profile');
     let emailSent = false;
     
     const transporter = nodemailer.createTransport({
-        host: 'smtp.ethereal.email',
+        host: 'smtp.gmail.com',
         port: 587,
         auth: {
-            user: 'rahsaan.bayer88@ethereal.email',
-            pass: 'TQnMNUKtGwwjRaVhaX'
+            user: 'gmail',
+            pass: 'pass'
         }
     });
 
     const mailOptions ={
-        from: 'anmolmishraoins1@gmail.com',
-        to: 'anmolmishraoins11@gmail.com',
+        from: 'gmail',
+        to: 'gmail',
         subject: 'Payment Reminder',
-        text: `Dear user,\n This is a reminder that your payment is due  Details are \n
-        \n Name:${newReminder.name}\n Due Date:${newReminder.dueDate}\nCost:${newReminder.cost}\nCategory:${newReminder.category}\nRecurring:${newReminder.recurring}\n\n\n Kindly Open your app and check it .\n\nThank you.`
+        text: `Dear user,\nThis is a reminder that your payment is due  Details are:\n
+        \nName:${newReminder.name}\nDue Date:${newReminder.dueDate}\nCost:${newReminder.cost}\nCategory:${newReminder.category}\nRecurring:${newReminder.recurring}\n\n Kindly Open your app and check it .\n\nThank you.`
         
     };
 
@@ -212,62 +194,61 @@ const [year, month, day] = newReminder.dueDate.split('-').map(Number);
 
 app.post('/signup', async (req, res) => {
     try {
-        const { username, email, password, fullName } = req.body;
-        // Hash password
-      //  const hashedPassword = await bcrypt.hash(password, 10);
+        const password=req.body.password;
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const newUser={ 
+            name:req.body.username, 
+            email:req.body.email,
+            password:hashedPassword, 
+            fullName:req.body.fullName
+        } 
         // Create new user
-        const newUser={
-            username:username,
-            email:email,
-            password:password,
-            name:fullName
-        };
-        // await newUser.create({username, email, password, name});
-        //reminders.push(newUser);
-        Reminder1.insertMany([newUser]);
-        res.redirect('/reminders');
-        //res.status(201).send('User created successfully');
-    } catch (error) {
+        await  Reminder1.insertMany([newUser]);
+        res.redirect('/login');
+    }
+     catch (error) {
         console.error('Error creating user:', error);
         res.status(500).send('Internal Server Error');
     }
 });
 // Login route
+const bcrypt = require('bcrypt');  
 app.post('/login', async (req, res) => {
     try {
-        const { username, password } = req.body;
-        // Find user by username
-        const user = await Reminder1.findOne({ username });
+        const name=req.body.username;
+        const password=req.body.password;
+      
+        const user = await Reminder1.findOne({ name });
         if (user) {
-            // Compare passwords
-            const passwordMatch = await bcrypt.compare(password, user.password);
-            if (passwordMatch) {
-                req.session.user = user;
-                res.send('Login successful');
-            } else {
-                res.status(401).send('Invalid credentials');
+            const passwordMatch=await bcrypt.compare(password,user.password)
+            if (passwordMatch) 
+                {
+                req.session.username = name;
+                res.redirect('/profile');
+            } 
+            else {
+             
+                res.render('login', { errorMessage: 'Invalid password' });
             }
-        } else {
-            res.status(404).send('User not found');
+        } 
+        else {
+          
+           res.render('login', { errorMessage: 'Invalid username' });
         }
     } catch (error) {
         console.error('Error logging in:', error);
         res.status(500).send('Internal Server Error');
     }
 });
-
-// Logout route
 app.get('/logout', (req, res) => {
     req.session.destroy(err => {
         if (err) {
-            console.error('Error destroying session:', err);
-            res.status(500).send('Internal Server Error');
-        } else {
-            res.send('Logout successful');
+            return res.redirect('/profile');
         }
+        res.clearCookie('connect.sid');
+        res.redirect('/login');
     });
 });
-
 // User profile route
 app.get('/profile', (req, res) => {
     const user = req.session.user;
@@ -297,9 +278,6 @@ app.put('/profile', async (req, res) => {
         res.status(500).send('Internal Server Error');
     }
 });
-
-
-
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Payment Reminder App is running on port ${PORT}`);
